@@ -1672,9 +1672,13 @@ class Character {
         // 只要有实际移动就尝试生成波纹
         const actualMoveDistance = Math.sqrt((this.x - oldX) ** 2 + (this.y - oldY) ** 2);
         
+        // 移动设备使用更长的波纹生成间隔
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 'ontouchstart' in window;
+        const rippleInterval = isMobile ? 200 : 100; // 移动设备200ms间隔，桌面100ms
+        
         if (actualMoveDistance > 0.5 && // 确实有移动
             moveDistance > this.rippleThreshold && 
-            currentTime - this.lastRippleTime > 100 && // 限制波纹生成频率
+            currentTime - this.lastRippleTime > rippleInterval && // 动态调整波纹生成频率
             rippleCallback) {
             
             // 生成波纹
@@ -2199,17 +2203,42 @@ class VirtualJoystick {
         this.deltaY = 0;
         this.maxDistance = 40;
         
+        // 初始化时隐藏摇杆
+        this.joystick.style.display = 'none';
+        
         this.setupEventListeners();
     }
     
     setupEventListeners() {
-        this.joystick.addEventListener('touchstart', (e) => {
-            e.preventDefault();
+        // 监听Canvas的触摸开始事件，动态定位摇杆（仅限游戏进行中）
+        const canvas = document.getElementById('gameCanvas');
+        
+        canvas.addEventListener('touchstart', (e) => {
+            // 只在移动设备上且游戏进行中启用虚拟摇杆
+            if (!this.isMobileDevice()) return;
+            
+            // 检查游戏状态，只在游戏进行中显示摇杆
+            const game = window.gameInstance;
+            if (!game || game.gameState !== 'playing') return;
+            
+            const touch = e.touches[0];
+            
+            // 动态定位摇杆到触摸位置
+            this.startX = touch.clientX;
+            this.startY = touch.clientY;
+            
+            // 设置摇杆位置
+            this.joystick.style.left = `${this.startX - 60}px`; // 60是摇杆半径
+            this.joystick.style.top = `${this.startY - 60}px`;
+            this.joystick.style.display = 'block';
+            
             this.isActive = true;
-            const rect = this.joystick.getBoundingClientRect();
-            this.startX = rect.left + rect.width / 2;
-            this.startY = rect.top + rect.height / 2;
-        });
+            this.deltaX = 0;
+            this.deltaY = 0;
+            
+            // 重置把手位置
+            this.knob.style.transform = 'translate(-50%, -50%)';
+        }, { passive: false });
         
         document.addEventListener('touchmove', (e) => {
             if (!this.isActive) return;
@@ -2228,14 +2257,25 @@ class VirtualJoystick {
             
             // 更新把手位置
             this.knob.style.transform = `translate(${this.deltaX - 20}px, ${this.deltaY - 20}px)`;
-        });
+        }, { passive: false });
         
         document.addEventListener('touchend', () => {
+            if (!this.isActive) return;
+            
             this.isActive = false;
             this.deltaX = 0;
             this.deltaY = 0;
+            
+            // 隐藏摇杆
+            this.joystick.style.display = 'none';
             this.knob.style.transform = 'translate(-50%, -50%)';
-        });
+        }, { passive: false });
+    }
+    
+    isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               'ontouchstart' in window ||
+               window.innerWidth <= 768;
     }
     
     getInput() {
@@ -2305,7 +2345,8 @@ class Game {
         
         // 波纹系统
         this.ripples = [];
-        this.maxRipples = 100; // 最大波纹数量
+        // 根据设备性能调整波纹数量
+        this.maxRipples = this.isMobileDevice() ? 30 : 100; // 移动设备降低波纹数量
         
         // 绑定波纹生成回调
         this.rippleCallback = this.createRipple.bind(this);
@@ -2342,20 +2383,42 @@ class Game {
         this.gameLoop();
     }
     
+    // 检测是否为移动设备
+    isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               'ontouchstart' in window ||
+               window.innerWidth <= 768;
+    }
+    
     setupCanvas() {
-        // 设置canvas为全屏尺寸
-        this.canvas.width = CONFIG.CANVAS_WIDTH;
-        this.canvas.height = CONFIG.CANVAS_HEIGHT;
-        
-        // 确保canvas样式也是全屏
-        this.canvas.style.width = '100vw';
-        this.canvas.style.height = '100vh';
+        // 设置canvas为实际像素尺寸
+        this.updateCanvasSize();
         
         // 监听窗口大小变化
         window.addEventListener('resize', () => {
-            this.canvas.width = CONFIG.CANVAS_WIDTH;
-            this.canvas.height = CONFIG.CANVAS_HEIGHT;
+            this.updateCanvasSize();
         });
+    }
+    
+    updateCanvasSize() {
+        // 获取设备像素比
+        const dpr = window.devicePixelRatio || 1;
+        
+        // 获取CSS尺寸（视口尺寸）
+        const rect = this.canvas.getBoundingClientRect();
+        const cssWidth = window.innerWidth;
+        const cssHeight = window.innerHeight;
+        
+        // 设置Canvas的实际像素尺寸
+        this.canvas.width = cssWidth * dpr;
+        this.canvas.height = cssHeight * dpr;
+        
+        // 设置CSS显示尺寸
+        this.canvas.style.width = cssWidth + 'px';
+        this.canvas.style.height = cssHeight + 'px';
+        
+        // 缩放绘图上下文以匹配设备像素比
+        this.ctx.scale(dpr, dpr);
         
         // 添加点击/触摸事件监听器，用于游戏结束后重新开始
         this.canvas.addEventListener('click', () => {
@@ -2371,6 +2434,10 @@ class Game {
                 this.restartGame();
             }
         });
+        
+        // 防止默认的触摸行为（如页面滚动、缩放等）
+        this.canvas.addEventListener('touchstart', (e) => e.preventDefault());
+        this.canvas.addEventListener('touchmove', (e) => e.preventDefault());
     }
     
     setupTitleScreen() {

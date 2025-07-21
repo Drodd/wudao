@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>墨点竞争游戏</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>悟·道</title>
     <style>
         * {
             margin: 0;
@@ -18,6 +18,11 @@
             touch-action: none;
             margin: 0;
             padding: 0;
+            /* 防止移动端意外缩放和滚动 */
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         #gameContainer {
@@ -33,9 +38,7 @@
         }
 
         #virtualJoystick {
-            position: absolute;
-            bottom: 40px;
-            left: 40px;
+            position: fixed;
             width: 120px;
             height: 120px;
             border-radius: 50%;
@@ -45,8 +48,7 @@
             display: none;
             z-index: 1000;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            animation: fadeInBottom 1s ease-out;
+            pointer-events: none; /* 防止摇杆本身阻挡触摸事件 */
         }
 
         #joystickKnob {
@@ -100,6 +102,19 @@
         @media (min-width: 769px) {
             #virtualJoystick {
                 display: none !important;
+            }
+        }
+        
+        /* 额外的移动设备优化 */
+        @media (max-width: 768px) and (orientation: landscape) {
+            #virtualJoystick {
+                width: 80px;
+                height: 80px;
+            }
+            
+            #joystickKnob {
+                width: 28px;
+                height: 28px;
             }
         }
 
