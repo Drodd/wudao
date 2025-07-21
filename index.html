@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>墨点竞争游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #virtualJoystick {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            animation: fadeInBottom 1s ease-out;
+        }
+
+        #joystickKnob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(5px);
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+
+
+
+
+        @keyframes fadeInBottom {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+
+        @media (max-width: 768px) {
+            #virtualJoystick {
+                display: block;
+                bottom: 30px;
+                left: 30px;
+                width: 100px;
+                height: 100px;
+            }
+            
+            #joystickKnob {
+                width: 35px;
+                height: 35px;
+            }
+            
+
+        }
+
+        @media (min-width: 769px) {
+            #virtualJoystick {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #restartButton {
+                padding: 14px 24px;
+                font-size: 14px;
+                border-radius: 8px;
+            }
+        }
+        
+        /* 重新开始按钮 - 极简设计 */
+        #restartButton {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            
+            /* 外观设计 - 更极简的视觉 */
+            background: rgba(255, 255, 255, 0.92);
+            color: rgba(45, 45, 45, 0.95);
+            border: none;
+            border-radius: 12px;
+            padding: 18px 36px;
+            font-size: 16px;
+            font-weight: 400;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            letter-spacing: 0.5px;
+            
+            /* 交互效果 */
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            
+            /* 动画入场 */
+            animation: buttonFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* 防止文字选择 */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        #restartButton:hover {
+            background: rgba(255, 255, 255, 0.98);
+            color: rgba(30, 30, 30, 1);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+            transform: translate(-50%, -50%) translateY(-3px);
+        }
+        
+        #restartButton:active {
+            transform: translate(-50%, -50%) translateY(-1px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            background: rgba(248, 248, 248, 0.95);
+        }
+        
+        @keyframes buttonFadeIn {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+        
+
+        
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            #restartButton {
+                padding: 16px 32px;
+                font-size: 15px;
+                border-radius: 10px;
+            }
+            
+
+        }
+        
+        @media (max-width: 480px) {
+            #restartButton {
+                padding: 14px 24px;
+                font-size: 14px;
+                border-radius: 8px;
+            }
+            
+
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+
+        
+        <div id="virtualJoystick">
+            <div id="joystickKnob"></div>
+        </div>
+        
+        <div id="restartButton" style="display: none;">
+            重新开始
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html> 
