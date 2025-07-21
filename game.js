@@ -2196,6 +2196,11 @@ class VirtualJoystick {
     constructor() {
         this.joystick = document.getElementById('virtualJoystick');
         this.knob = document.getElementById('joystickKnob');
+        
+        // 调试信息
+        console.log('VirtualJoystick: joystick element:', this.joystick);
+        console.log('VirtualJoystick: knob element:', this.knob);
+        
         this.isActive = false;
         this.startX = 0;
         this.startY = 0;
@@ -2204,22 +2209,40 @@ class VirtualJoystick {
         this.maxDistance = 40;
         
         // 初始化时隐藏摇杆
-        this.joystick.style.display = 'none';
+        if (this.joystick) {
+            this.joystick.style.display = 'none';
+        }
         
         this.setupEventListeners();
     }
     
     setupEventListeners() {
-        // 监听Canvas的触摸开始事件，动态定位摇杆（仅限游戏进行中）
-        const canvas = document.getElementById('gameCanvas');
-        
-        canvas.addEventListener('touchstart', (e) => {
-            // 只在移动设备上且游戏进行中启用虚拟摇杆
-            if (!this.isMobileDevice()) return;
+        // 监听文档的触摸开始事件，动态定位摇杆
+        document.addEventListener('touchstart', (e) => {
+            // 调试信息
+            console.log('VirtualJoystick: touchstart detected');
+            console.log('isMobileDevice:', this.isMobileDevice());
+            console.log('gameInstance:', window.gameInstance);
+            console.log('gameState:', window.gameInstance?.gameState);
             
-            // 检查游戏状态，只在游戏进行中显示摇杆
+            // 只在移动设备上启用虚拟摇杆
+            if (!this.isMobileDevice()) {
+                console.log('VirtualJoystick: Not a mobile device, skipping');
+                return;
+            }
+            
+            // 检查游戏状态，只在需要控制角色时显示摇杆
             const game = window.gameInstance;
-            if (!game || game.gameState !== 'playing') return;
+            if (!game) {
+                console.log('VirtualJoystick: No game instance, skipping');
+                return;
+            }
+            
+            // 允许在标题界面和游戏进行中使用摇杆
+            if (game.gameState !== 'playing' && game.gameState !== 'title') {
+                console.log('VirtualJoystick: Wrong game state:', game.gameState);
+                return;
+            }
             
             const touch = e.touches[0];
             
@@ -2227,10 +2250,25 @@ class VirtualJoystick {
             this.startX = touch.clientX;
             this.startY = touch.clientY;
             
+            console.log('VirtualJoystick: Setting joystick position at', this.startX, this.startY);
+            
+            // 确保摇杆元素存在
+            if (!this.joystick) {
+                console.error('VirtualJoystick: joystick element not found!');
+                return;
+            }
+            
             // 设置摇杆位置
             this.joystick.style.left = `${this.startX - 60}px`; // 60是摇杆半径
             this.joystick.style.top = `${this.startY - 60}px`;
             this.joystick.style.display = 'block';
+            
+            console.log('VirtualJoystick: Joystick should now be visible');
+            console.log('VirtualJoystick: Joystick styles:', {
+                left: this.joystick.style.left,
+                top: this.joystick.style.top,
+                display: this.joystick.style.display
+            });
             
             this.isActive = true;
             this.deltaX = 0;
@@ -2238,6 +2276,9 @@ class VirtualJoystick {
             
             // 重置把手位置
             this.knob.style.transform = 'translate(-50%, -50%)';
+            
+            // 阻止默认行为，避免页面滚动
+            e.preventDefault();
         }, { passive: false });
         
         document.addEventListener('touchmove', (e) => {
@@ -2260,6 +2301,8 @@ class VirtualJoystick {
         }, { passive: false });
         
         document.addEventListener('touchend', () => {
+            console.log('VirtualJoystick: touchend detected, isActive:', this.isActive);
+            
             if (!this.isActive) return;
             
             this.isActive = false;
@@ -2267,8 +2310,13 @@ class VirtualJoystick {
             this.deltaY = 0;
             
             // 隐藏摇杆
-            this.joystick.style.display = 'none';
-            this.knob.style.transform = 'translate(-50%, -50%)';
+            if (this.joystick) {
+                this.joystick.style.display = 'none';
+                console.log('VirtualJoystick: Joystick hidden');
+            }
+            if (this.knob) {
+                this.knob.style.transform = 'translate(-50%, -50%)';
+            }
         }, { passive: false });
     }
     
@@ -2435,9 +2483,17 @@ class Game {
             }
         });
         
-        // 防止默认的触摸行为（如页面滚动、缩放等）
-        this.canvas.addEventListener('touchstart', (e) => e.preventDefault());
-        this.canvas.addEventListener('touchmove', (e) => e.preventDefault());
+        // 防止默认的触摸行为，但允许虚拟摇杆工作
+        this.canvas.addEventListener('touchstart', (e) => {
+            // 不阻止touchstart，让虚拟摇杆能够正常工作
+        });
+        this.canvas.addEventListener('touchmove', (e) => {
+            // 只在虚拟摇杆激活时允许触摸移动，否则阻止页面滚动
+            const virtualJoystick = this.inputHandler?.virtualJoystick;
+            if (!virtualJoystick?.isActive) {
+                e.preventDefault();
+            }
+        });
     }
     
     setupTitleScreen() {
@@ -3631,7 +3687,13 @@ class Game {
         this.ctx.textBaseline = 'middle';
         this.ctx.letterSpacing = '0.05em';
         
-        this.ctx.fillText('使用WASD控制黑色圆点移动，靠近并填充圆心以开始游戏', CONFIG.CANVAS_WIDTH / 2, instructionY);
+        // 根据设备类型显示不同的操作说明
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 'ontouchstart' in window || window.innerWidth <= 768;
+        const instructionText = isMobile ? 
+            '拖拽屏幕控制黑色圆点移动，靠近并填充圆心以开始游戏' : 
+            '使用WASD控制黑色圆点移动，靠近并填充圆心以开始游戏';
+        
+        this.ctx.fillText(instructionText, CONFIG.CANVAS_WIDTH / 2, instructionY);
         
         this.ctx.restore();
     }
