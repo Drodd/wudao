@@ -1478,7 +1478,7 @@ class Character {
         this.lastX = x;
         this.lastY = y;
         this.lastRippleTime = 0;
-        this.rippleThreshold = 3; // 移动距离阈值，超过后生成波纹（降低阈值）
+        this.rippleThreshold = 30; // 移动距离阈值，超过后生成波纹（降低阈值）
         
         // 新增：死亡动画系统
         this.isDying = false; // 是否正在死亡动画中
