@@ -2613,8 +2613,12 @@ class Game {
         // 确保重新开始按钮是隐藏的
         this.hideRestartButton();
         
+        // 根据设备类型调整角色数量
+        const isMobile = this.isMobileDevice();
+        const characterCount = isMobile ? Math.floor(CONFIG.INITIAL_CHARACTER_COUNT / 2) : CONFIG.INITIAL_CHARACTER_COUNT;
+        
         // 生成角色
-        for (let i = 0; i < CONFIG.INITIAL_CHARACTER_COUNT; i++) {
+        for (let i = 0; i < characterCount; i++) {
             let x, y;
             let attempts = 0;
             
