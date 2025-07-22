@@ -1763,6 +1763,66 @@ class Character {
         return null;
     }
     
+    // 检查角色是否在角落
+    isInCorner(margin) {
+        const nearLeft = this.x - this.radius <= margin;
+        const nearRight = this.x + this.radius >= CONFIG.CANVAS_WIDTH - margin;
+        const nearTop = this.y - this.radius <= margin;
+        const nearBottom = this.y + this.radius >= CONFIG.CANVAS_HEIGHT - margin;
+        
+        // 如果同时接近两个边界，则认为在角落
+        return (nearLeft || nearRight) && (nearTop || nearBottom);
+    }
+    
+    // 检查角色是否将要撞墙
+    willHitWall(nextX, nextY, margin) {
+        return nextX - this.radius <= margin || 
+               nextX + this.radius >= CONFIG.CANVAS_WIDTH - margin ||
+               nextY - this.radius <= margin || 
+               nextY + this.radius >= CONFIG.CANVAS_HEIGHT - margin;
+    }
+    
+    // 调整移动方向以避免撞墙
+    adjustDirectionForBoundary(dx, dy, margin) {
+        let adjustedDx = dx;
+        let adjustedDy = dy;
+        
+        // 检查水平边界
+        if (this.x - this.radius <= margin && dx < 0) {
+            // 接近左边界且向左移动，改为向右
+            adjustedDx = Math.abs(dx);
+        } else if (this.x + this.radius >= CONFIG.CANVAS_WIDTH - margin && dx > 0) {
+            // 接近右边界且向右移动，改为向左
+            adjustedDx = -Math.abs(dx);
+        }
+        
+        // 检查垂直边界
+        if (this.y - this.radius <= margin && dy < 0) {
+            // 接近上边界且向上移动，改为向下
+            adjustedDy = Math.abs(dy);
+        } else if (this.y + this.radius >= CONFIG.CANVAS_HEIGHT - margin && dy > 0) {
+            // 接近下边界且向下移动，改为向上
+            adjustedDy = -Math.abs(dy);
+        }
+        
+        // 如果调整后的方向仍然会导致撞墙，则选择最佳的替代方向
+        if (this.willHitWall(this.x + adjustedDx * 10, this.y + adjustedDy * 10, margin)) {
+            // 计算到屏幕中心的方向作为备选
+            const centerX = CONFIG.CANVAS_WIDTH / 2;
+            const centerY = CONFIG.CANVAS_HEIGHT / 2;
+            const toCenterX = centerX - this.x;
+            const toCenterY = centerY - this.y;
+            const toCenterDistance = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY);
+            
+            if (toCenterDistance > 0) {
+                adjustedDx = toCenterX / toCenterDistance;
+                adjustedDy = toCenterY / toCenterDistance;
+            }
+        }
+        
+        return { x: adjustedDx, y: adjustedDy };
+    }
+    
     // 计算智能移动方向
     getSmartMovement(characters, deltaTime) {
         let dx = 0, dy = 0;
@@ -1777,6 +1837,34 @@ class Character {
             if (distance > 0) {
                 dx = escapeX / distance;
                 dy = escapeY / distance;
+                
+                // 边界检测和智能避障
+                const edgeMargin = this.radius * 3; // 提前3个半径距离开始避让
+                const cornerMargin = this.radius * 5; // 角落检测的范围
+                
+                // 检测即将到达的位置
+                const nextX = this.x + dx * CONFIG.BASE_SPEED * deltaTime;
+                const nextY = this.y + dy * CONFIG.BASE_SPEED * deltaTime;
+                
+                // 死角检测：如果在角落且逃离方向会撞墙，则朝吸收方移动脱离死角
+                const isInCorner = this.isInCorner(cornerMargin);
+                const willHitWall = this.willHitWall(nextX, nextY, edgeMargin);
+                
+                if (isInCorner && willHitWall) {
+                    // 朝吸收方移动脱离死角
+                    const toAbsorberX = absorber.x - this.x;
+                    const toAbsorberY = absorber.y - this.y;
+                    const toAbsorberDistance = Math.sqrt(toAbsorberX * toAbsorberX + toAbsorberY * toAbsorberY);
+                    if (toAbsorberDistance > 0) {
+                        dx = toAbsorberX / toAbsorberDistance;
+                        dy = toAbsorberY / toAbsorberDistance;
+                    }
+                } else if (willHitWall) {
+                    // 边界避让：调整移动方向避免撞墙
+                    dx = this.adjustDirectionForBoundary(dx, dy, edgeMargin).x;
+                    dy = this.adjustDirectionForBoundary(dx, dy, edgeMargin).y;
+                }
+                
                 hasAction = true;
             }
         }
