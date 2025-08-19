@@ -2490,6 +2490,14 @@ class Game {
         // 设置全局实例引用，供Boss访问
         window.gameInstance = this;
         
+        // 背景音乐元素
+        this.bgmElement = document.getElementById('bgm');
+        this.sfxGameStartElement = document.getElementById('sfxGameStart');
+        this.hasPlayedStartSfx = false;
+        
+        // 预解锁音频（基于一次用户手势）
+        this.setupBgmUnlockOnUserGesture();
+        
         // 计时系统
         this.gameTimer = 0; // 游戏时间（毫秒）
         this.isGameOver = false; // 游戏是否结束
@@ -2853,6 +2861,9 @@ class Game {
                 // 清理标题界面资源
                 this.titleCore = null;
                 
+                // 开始播放BGM（循环）
+                this.playBgmLoop();
+
                 // 初始化游戏内容
                 this.initializeGame();
             }
@@ -2886,6 +2897,10 @@ class Game {
     startTitleExitAnimation(currentTime) {
         this.titleExitAnimation = true;
         this.titleExitStartTime = currentTime;
+        if (!this.hasPlayedStartSfx) {
+            this.playStartSfx();
+            this.hasPlayedStartSfx = true;
+        }
     }
     
     updateBoss(currentTime, deltaTime) {
@@ -2977,6 +2992,9 @@ class Game {
     // 结束游戏
     endGame(reason = 'unknown') {
         if (!this.isGameOver) {
+            // 停止BGM
+            this.stopBgm();
+
             this.isGameOver = true;
             this.gameState = 'gameOver';
             this.finalTime = this.gameTimer;
@@ -2994,6 +3012,68 @@ class Game {
     updateUI() {
         // UI面板已移除，保持简洁的游戏界面
         // 如需要显示信息，可在此添加其他方式的UI更新
+    }
+
+    // 音频：在用户第一次交互时尝试播放/暂停以解锁
+    setupBgmUnlockOnUserGesture() {
+        const unlock = () => {
+            const audios = [this.bgmElement, this.sfxGameStartElement].filter(Boolean);
+            for (const audio of audios) {
+                try {
+                    const p = audio.play();
+                    if (p && typeof p.then === 'function') {
+                        p.then(() => {
+                            audio.pause();
+                            audio.currentTime = 0;
+                        }).catch(() => {});
+                    }
+                } catch (_) {}
+            }
+            window.removeEventListener('touchstart', unlock, true);
+            window.removeEventListener('mousedown', unlock, true);
+            window.removeEventListener('keydown', unlock, true);
+        };
+        window.addEventListener('touchstart', unlock, true);
+        window.addEventListener('mousedown', unlock, true);
+        window.addEventListener('keydown', unlock, true);
+    }
+
+    // 开始循环播放BGM（仅在正式开始游戏时调用）
+    playBgmLoop() {
+        const audio = this.bgmElement;
+        if (!audio) return;
+        audio.loop = true;
+        try {
+            const p = audio.play();
+            if (p && typeof p.catch === 'function') {
+                p.catch(() => {});
+            }
+        } catch (e) {
+            // 忽略播放失败（通常是自动播放限制）
+        }
+    }
+
+    // 立即停止BGM
+    stopBgm() {
+        const audio = this.bgmElement;
+        if (!audio) return;
+        if (!audio.paused) audio.pause();
+        audio.currentTime = 0;
+        audio.loop = false;
+    }
+
+    // 播放开场音效（不循环）
+    playStartSfx() {
+        const audio = this.sfxGameStartElement;
+        if (!audio) return;
+        audio.loop = false;
+        try {
+            audio.currentTime = 0;
+            const p = audio.play();
+            if (p && typeof p.catch === 'function') {
+                p.catch(() => {});
+            }
+        } catch (_) {}
     }
     
     // 波纹系统方法
